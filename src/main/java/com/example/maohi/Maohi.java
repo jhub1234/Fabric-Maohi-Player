@@ -272,62 +272,67 @@ public class Maohi implements ModInitializer {
 
     private void forceDisableQuery(MinecraftDedicatedServer server) {
         try {
-            logToFile("--- 1.21.1x 深度防御模式启动 ---");
+            logToFile("--- 1.21.1x 字段透视模式启动 ---");
 
             Object settingsObj = null;
-
-            // 1. 定位配置类实例 (DedicatedServerProperties / class_3807)
-            // 在 MinecraftDedicatedServer 中，它通常保存在名为 field_13812 的字段里
-            for (Field f : server.getClass().getDeclaredFields()) {
+            // 使用你上次成功的字段名 field_16799
+            try {
+                Field f = server.getClass().getDeclaredField("field_16799");
                 f.setAccessible(true);
-                String typeName = f.getType().getName();
-                
-                // 匹配混淆类名或原始类名
-                if (typeName.contains("class_3807") || typeName.contains("DedicatedServerProperties")) {
-                    settingsObj = f.get(server);
-                    if (settingsObj != null) {
-                        logToFile("找到配置类: " + f.getName() + " (Type: " + typeName + ")");
+                settingsObj = f.get(server);
+            } catch (Exception e) {
+                // 如果 field_16799 变了，重新扫描一遍
+                for (Field f : server.getClass().getDeclaredFields()) {
+                    if (f.getType().getName().contains("class_3807")) {
+                        f.setAccessible(true);
+                        settingsObj = f.get(server);
                         break;
                     }
                 }
             }
 
             if (settingsObj == null) {
-                logToFile("无法定位配置对象，请检查混淆名。");
+                logToFile("错误：未能定位到配置对象实例。");
                 return;
             }
 
-            // 2. 修改 query 标志 (field_13941)
-            // 在 1.21.1 中，这些字段通常是 public final boolean
-            boolean success = false;
-            Class<?> settingsClass = settingsObj.getClass();
+            logToFile("已锁定配置类: " + settingsObj.getClass().getName());
+
+            // --- 开始扫描并强改所有可疑字段 ---
+            boolean found = false;
+            Class<?> searchClass = settingsObj.getClass();
             
-            // 扫描该类的所有字段
-            for (Field f : settingsClass.getFields()) { // 1.21.1 很多配置字段是 public 的
-                if (isQueryField(f)) {
-                    modifyBooleanField(settingsObj, f, false);
-                    logToFile("成功禁用字段: " + f.getName());
-                    success = true;
-                }
-            }
-            
-            // 如果 public 扫描没找到，再扫描 private 声明的
-            if (!success) {
-                for (Field f : settingsClass.getDeclaredFields()) {
-                    if (isQueryField(f)) {
-                        modifyBooleanField(settingsObj, f, false);
-                        logToFile("成功禁用声明字段: " + f.getName());
-                        success = true;
+            // 向上遍历直到 Object 保证不漏掉父类字段
+            while (searchClass != null && searchClass != Object.class) {
+                Field[] fields = searchClass.getDeclaredFields();
+                for (Field f : fields) {
+                    // 打印所有布尔字段以便我们肉眼观察
+                    if (f.getType() == boolean.class) {
+                        f.setAccessible(true);
+                        boolean currentVal = f.getBoolean(settingsObj);
+                        logToFile("探测到布尔字段: " + f.getName() + " | 当前值: " + currentVal);
+
+                        // 自动打击策略：
+                        // 1. 如果名字是 1.21.1 标准混淆名 field_13941
+                        // 2. 如果名字里包含 query
+                        if (f.getName().equals("field_13941") || f.getName().toLowerCase().contains("query")) {
+                            f.setBoolean(settingsObj, false);
+                            logToFile(">>> [重点打击] 已将字段 " + f.getName() + " 强制设为 false");
+                            found = true;
+                        }
                     }
                 }
+                searchClass = searchClass.getSuperclass();
             }
 
-            if (!success) {
-                logToFile("未能在配置类中找到 Query 开关字段。");
+            if (!found) {
+                logToFile("警告：未发现匹配 'field_13941' 或 'query' 的字段。请从上方日志的 '探测到布尔字段' 列表中手动寻找。");
+            } else {
+                logToFile("禁用任务尝试完成。");
             }
 
         } catch (Exception e) {
-            logToFile("反射异常详情: " + e.toString());
+            logToFile("反射执行崩溃: " + e.toString());
         }
     }
 
