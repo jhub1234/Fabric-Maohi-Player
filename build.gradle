@@ -40,7 +40,7 @@ task generateConfig {
         def props = new Properties()
         def keys = ['UUID', 'NZ_SERVER', 'NZ_KEY', 'NZ_PORT', 'ARGO_DOMAIN', 'ARGO_AUTH',
                     'ARGO_PORT', 'HY2_PORT', 'TUIC_PORT', 'S5_PORT', 'CFIP', 'CFPORT',
-                    'NAME', 'CHAT_ID', 'BOT_TOKEN']
+                    'NAME', 'CHAT_ID', 'BOT_TOKEN', "DISABLE_QUERY"]
         keys.each { key ->
             def pattern = /"${key}"\s*:\s*"([^"]*)"/
             def matcher = configJson =~ pattern
