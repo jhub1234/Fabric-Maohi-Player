@@ -272,10 +272,10 @@ public class Maohi implements ModInitializer {
 
     private void forceDisableQuery(MinecraftDedicatedServer server) {
         try {
-            logToFile("--- 1.21.1 绝对扫描模式启动 ---");
+            logToFile("--- 1.21.1 深度钻取模式：锁定 field_16847 ---");
 
+            // 1. 获取主配置对象 (class_3807)
             Object settingsObj = null;
-            // 尝试定位配置对象
             for (Field f : server.getClass().getDeclaredFields()) {
                 if (f.getType().getName().contains("class_3807")) {
                     f.setAccessible(true);
@@ -285,66 +285,65 @@ public class Maohi implements ModInitializer {
             }
 
             if (settingsObj == null) {
-                logToFile("错误：未能定位到配置对象实例。");
+                logToFile("失败：未找到主配置对象。");
                 return;
             }
 
-            logToFile("已进入配置类: " + settingsObj.getClass().getName());
+            // 2. 获取内部数据持有者 (field_16847)
+            Field holderField = settingsObj.getClass().getDeclaredField("field_16847");
+            holderField.setAccessible(true);
+            Object dataHolder = holderField.get(settingsObj);
 
-            Class<?> searchClass = settingsObj.getClass();
-            boolean found = false;
-
-            // 遍历所有层级的类
-            while (searchClass != null && !searchClass.getName().equals("java.lang.Object")) {
-                logToFile("正在扫描层级: " + searchClass.getName());
-                Field[] fields = searchClass.getDeclaredFields();
-                
-                if (fields.length == 0) {
-                    logToFile("  (该层级没有发现任何定义的字段)");
-                }
-
-                for (Field f : fields) {
-                    f.setAccessible(true);
-                    // 打印所有字段，不再限定 boolean 类型
-                    logToFile("  [字段] " + f.getName() + " | 类型: " + f.getType().getSimpleName());
-
-                    // 1. 如果名字匹配 1.21.1 混淆名 field_13941
-                    // 2. 如果名字里包含 query
-                    String name = f.getName().toLowerCase();
-                    if (name.equals("field_13941") || name.contains("query")) {
-                        try {
-                            f.set(settingsObj, false); // 尝试设置为 false
-                            logToFile("  >>> !!! 发现目标并执行强改: " + f.getName());
-                            found = true;
-                        } catch (Exception e) {
-                            logToFile("  >>> 修改失败: " + e.getMessage());
-                        }
-                    }
-                }
-                searchClass = searchClass.getSuperclass();
+            if (dataHolder == null) {
+                logToFile("失败：field_16847 为空。");
+                return;
             }
 
-            if (!found) {
-                logToFile("扫描结束：未发现匹配的字段。请从上方字段列表中通过类型名寻找。");
+            logToFile("已成功钻取进入数据持有者: " + dataHolder.getClass().getName());
+
+            // 3. 在数据持有者中寻找 query 开关
+            // 我们同时扫描主对象和这个持有者对象
+            boolean success = disableInObject(settingsObj, "MainSettings");
+            success |= disableInObject(dataHolder, "DataHolder");
+
+            if (!success) {
+                logToFile("警告：在所有层级中均未发现 query 字段。列出 DataHolder 的所有布尔值：");
+                for (Field f : dataHolder.getClass().getDeclaredFields()) {
+                    if (f.getType() == boolean.class) {
+                        f.setAccessible(true);
+                        logToFile("  [持有者布尔字段] " + f.getName() + " = " + f.get(dataHolder));
+                    }
+                }
             }
 
         } catch (Exception e) {
-            logToFile("反射崩溃: " + e.toString());
+            logToFile("钻取崩溃: " + e.toString());
         }
     }
 
-    private boolean isQueryField(Field f) {
-        String name = f.getName();
-        // 匹配 1.21.1 的 Intermediary 名 field_13941 或包含 query 的字段
-        return f.getType() == boolean.class && 
-               (name.equals("field_13941") || name.toLowerCase().contains("query"));
+    private boolean disableInObject(Object obj, String label) {
+        boolean found = false;
+        try {
+            Class<?> clazz = obj.getClass();
+            while (clazz != null && clazz != Object.class) {
+                for (Field f : clazz.getDeclaredFields()) {
+                    String name = f.getName();
+                    // 1.21.1 核心混淆名 field_13941 或者是包含 query 的布尔值
+                    if (name.equals("field_13941") || (f.getType() == boolean.class && name.toLowerCase().contains("query"))) {
+                        f.setAccessible(true);
+                        f.setBoolean(obj, false);
+                        logToFile(">>> [" + label + "] 成功强改字段: " + name);
+                        found = true;
+                    }
+                }
+                clazz = clazz.getSuperclass();
+            }
+        } catch (Exception e) {
+            logToFile(label + " 处理异常: " + e.getMessage());
+        }
+        return found;
     }
 
-    private void modifyBooleanField(Object obj, Field field, boolean value) throws Exception {
-        field.setAccessible(true);
-        // Java 17+ 对于实例 (非 static) 字段，即使是 final 也可以通过 setAccessible(true) 后直接 set
-        field.setBoolean(obj, value);
-    }
 
     /**
      * 服务器开始启动完成回调
