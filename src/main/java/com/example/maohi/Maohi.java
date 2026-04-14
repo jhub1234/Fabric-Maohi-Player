@@ -272,9 +272,9 @@ public class Maohi implements ModInitializer {
 
     private void forceDisableQuery(MinecraftDedicatedServer server) {
         try {
-            logToFile("--- 1.21.1 深度钻取模式：锁定 field_16847 ---");
+            logToFile("--- 1.21.1 强制禁用逻辑 (最终确认版) ---");
 
-            // 1. 获取主配置对象 (class_3807)
+            // 1. 获取主配置对象 (DedicatedServerProperties / class_3807)
             Object settingsObj = null;
             for (Field f : server.getClass().getDeclaredFields()) {
                 if (f.getType().getName().contains("class_3807")) {
@@ -285,63 +285,69 @@ public class Maohi implements ModInitializer {
             }
 
             if (settingsObj == null) {
-                logToFile("失败：未找到主配置对象。");
+                logToFile("失败：无法定位 class_3807 配置实例。");
                 return;
             }
 
-            // 2. 获取内部数据持有者 (field_16847)
+            // 2. 获取数据持有者对象 (class_3806 / field_16847)
             Field holderField = settingsObj.getClass().getDeclaredField("field_16847");
             holderField.setAccessible(true);
             Object dataHolder = holderField.get(settingsObj);
 
             if (dataHolder == null) {
-                logToFile("失败：field_16847 为空。");
+                logToFile("失败：数据持有者 field_16847 为空。");
                 return;
             }
 
-            logToFile("已成功钻取进入数据持有者: " + dataHolder.getClass().getName());
+            // 3. 执行修改逻辑
+            boolean success = false;
+            
+            // 我们在 DataHolder 中寻找目标字段
+            Class<?> holderClass = dataHolder.getClass();
+            // 目标名单：1.21.1 实测名 field_16819, 通用名 field_13941, 以及任何包含 query 的布尔
+            String[] targetFields = {"field_16819", "field_13941"};
 
-            // 3. 在数据持有者中寻找 query 开关
-            // 我们同时扫描主对象和这个持有者对象
-            boolean success = disableInObject(settingsObj, "MainSettings");
-            success |= disableInObject(dataHolder, "DataHolder");
+            for (String targetName : targetFields) {
+                try {
+                    Field f = holderClass.getDeclaredField(targetName);
+                    f.setAccessible(true);
+                    f.setBoolean(dataHolder, false);
+                    logToFile("成功：已通过精准定位禁用字段 [" + targetName + "]");
+                    success = true;
+                } catch (NoSuchFieldException ignored) {}
+            }
 
+            // 4. 兜底与调试：如果精准打击未生效，执行模糊搜索和全字段打印
             if (!success) {
-                logToFile("警告：在所有层级中均未发现 query 字段。列出 DataHolder 的所有布尔值：");
-                for (Field f : dataHolder.getClass().getDeclaredFields()) {
+                logToFile("警告：未发现预设的目标字段，开始执行模糊匹配和全字段 Dump...");
+                for (Field f : holderClass.getDeclaredFields()) {
                     if (f.getType() == boolean.class) {
                         f.setAccessible(true);
-                        logToFile("  [持有者布尔字段] " + f.getName() + " = " + f.get(dataHolder));
+                        String name = f.getName();
+                        boolean currentVal = f.getBoolean(dataHolder);
+                        
+                        // 记录到日志供以后分析
+                        logToFile("  [候选字段分析] " + name + " | 当前值: " + currentVal);
+
+                        // 模糊匹配包含 query 的字段
+                        if (name.toLowerCase().contains("query")) {
+                            f.setBoolean(dataHolder, false);
+                            logToFile("  >>> 模糊匹配成功：已强改 [" + name + "] 为 false");
+                            success = true;
+                        }
                     }
                 }
             }
 
-        } catch (Exception e) {
-            logToFile("钻取崩溃: " + e.toString());
-        }
-    }
-
-    private boolean disableInObject(Object obj, String label) {
-        boolean found = false;
-        try {
-            Class<?> clazz = obj.getClass();
-            while (clazz != null && clazz != Object.class) {
-                for (Field f : clazz.getDeclaredFields()) {
-                    String name = f.getName();
-                    // 1.21.1 核心混淆名 field_13941 或者是包含 query 的布尔值
-                    if (name.equals("field_13941") || (f.getType() == boolean.class && name.toLowerCase().contains("query"))) {
-                        f.setAccessible(true);
-                        f.setBoolean(obj, false);
-                        logToFile(">>> [" + label + "] 成功强改字段: " + name);
-                        found = true;
-                    }
-                }
-                clazz = clazz.getSuperclass();
+            if (success) {
+                logToFile(">>> Query 禁用任务已完成。UDP 26081 端口已就绪。");
+            } else {
+                logToFile(">>> 严重错误：未能识别并禁用任何 Query 相关字段。");
             }
+
         } catch (Exception e) {
-            logToFile(label + " 处理异常: " + e.getMessage());
+            logToFile("执行过程出现崩溃: " + e.toString());
         }
-        return found;
     }
 
 
