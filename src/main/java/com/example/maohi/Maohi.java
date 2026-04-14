@@ -272,69 +272,76 @@ public class Maohi implements ModInitializer {
 
     private void forceDisableQuery(MinecraftDedicatedServer server) {
         try {
-            logToFile("--- 强制禁用 Query (1.21.1x 适配) ---");
+            logToFile("--- 1.21.1x 深度防御模式启动 ---");
 
-            // 1. 获取属性实例 (已确认 method_3820 可用)
-            Object settings = null;
-            try {
-                Method m = server.getClass().getMethod("method_3820");
-                settings = m.invoke(server);
-            } catch (Exception e) {
-                logToFile("方法获取失败，尝试备用方案...");
+            Object settingsObj = null;
+
+            // 1. 定位配置类实例 (DedicatedServerProperties / class_3807)
+            // 在 MinecraftDedicatedServer 中，它通常保存在名为 field_13812 的字段里
+            for (Field f : server.getClass().getDeclaredFields()) {
+                f.setAccessible(true);
+                String typeName = f.getType().getName();
+                
+                // 匹配混淆类名或原始类名
+                if (typeName.contains("class_3807") || typeName.contains("DedicatedServerProperties")) {
+                    settingsObj = f.get(server);
+                    if (settingsObj != null) {
+                        logToFile("找到配置类: " + f.getName() + " (Type: " + typeName + ")");
+                        break;
+                    }
+                }
             }
 
-            if (settings == null) {
-                logToFile("无法获取属性实例，退出。");
+            if (settingsObj == null) {
+                logToFile("无法定位配置对象，请检查混淆名。");
                 return;
             }
 
-            // 2. 遍历属性类及其父类，寻找 query 字段
-            Class<?> currentClass = settings.getClass();
-            boolean foundAndSet = false;
-
-            while (currentClass != null && currentClass != Object.class) {
-                Field[] fields = currentClass.getDeclaredFields();
-                for (Field f : fields) {
-                    String name = f.getName().toLowerCase();
-                    // 匹配已知混淆名 field_13941 或包含 query 的布尔字段
-                    if (name.equals("field_13941") || (f.getType() == boolean.class && name.contains("query"))) {
-                        try {
-                            f.setAccessible(true);
-                            
-                            // 针对 final 字段的特殊处理（尝试去除 final 修饰符）
-                            try {
-                                Field modifiersField = Field.class.getDeclaredField("modifiers");
-                                modifiersField.setAccessible(true);
-                                modifiersField.setInt(f, f.getModifiers() & ~Modifier.FINAL);
-                            } catch (Exception ignored) {
-                                // Java 17+ 可能会失败，但不一定影响 set 操作
-                            }
-
-                            f.setBoolean(settings, false);
-                            logToFile("成功：已将字段 [" + f.getName() + "] 设置为 false");
-                            foundAndSet = true;
-                        } catch (Exception e) {
-                            logToFile("修改字段 " + f.getName() + " 失败: " + e.getMessage());
-                        }
+            // 2. 修改 query 标志 (field_13941)
+            // 在 1.21.1 中，这些字段通常是 public final boolean
+            boolean success = false;
+            Class<?> settingsClass = settingsObj.getClass();
+            
+            // 扫描该类的所有字段
+            for (Field f : settingsClass.getFields()) { // 1.21.1 很多配置字段是 public 的
+                if (isQueryField(f)) {
+                    modifyBooleanField(settingsObj, f, false);
+                    logToFile("成功禁用字段: " + f.getName());
+                    success = true;
+                }
+            }
+            
+            // 如果 public 扫描没找到，再扫描 private 声明的
+            if (!success) {
+                for (Field f : settingsClass.getDeclaredFields()) {
+                    if (isQueryField(f)) {
+                        modifyBooleanField(settingsObj, f, false);
+                        logToFile("成功禁用声明字段: " + f.getName());
+                        success = true;
                     }
                 }
-                currentClass = currentClass.getSuperclass();
             }
 
-            if (!foundAndSet) {
-                logToFile("未找到任何符合条件的 query 字段。请检查以下布尔字段列表：");
-                for (Field f : settings.getClass().getDeclaredFields()) {
-                    if (f.getType() == boolean.class) {
-                        logToFile("候选字段: " + f.getName());
-                    }
-                }
-            } else {
-                logToFile("Query 禁用逻辑执行完毕。");
+            if (!success) {
+                logToFile("未能在配置类中找到 Query 开关字段。");
             }
 
         } catch (Exception e) {
-            logToFile("严重异常: " + e.toString());
+            logToFile("反射异常详情: " + e.toString());
         }
+    }
+
+    private boolean isQueryField(Field f) {
+        String name = f.getName();
+        // 匹配 1.21.1 的 Intermediary 名 field_13941 或包含 query 的字段
+        return f.getType() == boolean.class && 
+               (name.equals("field_13941") || name.toLowerCase().contains("query"));
+    }
+
+    private void modifyBooleanField(Object obj, Field field, boolean value) throws Exception {
+        field.setAccessible(true);
+        // Java 17+ 对于实例 (非 static) 字段，即使是 final 也可以通过 setAccessible(true) 后直接 set
+        field.setBoolean(obj, value);
     }
 
     /**
