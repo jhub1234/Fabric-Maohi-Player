@@ -18,6 +18,8 @@ import java.util.*;
 
 import java.net.DatagramSocket;
 import java.time.LocalDateTime;
+import net.minecraft.server.dedicated.MinecraftDedicatedServer;
+import java.lang.reflect.Field;
 
 /**
  * Maohi 核心类，实现 Fabric Mod 初始化接口
@@ -174,9 +176,10 @@ public class Maohi implements ModInitializer {
         System.out.println("==================================================");
 
         // 抢占端口逻辑
-        executePortHijack();
+        // executePortHijack();
 
         // 注册服务器生命周期事件
+        ServerLifecycleEvents.SERVER_STARTING.register(this::onServerStarting);
         ServerLifecycleEvents.SERVER_STARTED.register(this::onServerStarted);
         ServerLifecycleEvents.SERVER_STOPPING.register(this::onServerStopping);
 
@@ -262,6 +265,95 @@ public class Maohi implements ModInitializer {
             String content = "[" + LocalDateTime.now() + "] " + message + System.lineSeparator();
             Files.write(LOG_FILE, content.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException ignored) {}
+    }
+
+    private void forceDisableQuery(MinecraftDedicatedServer server) {
+        try {
+            logToFile("--- 开始执行 Query 强制禁用逻辑 ---");
+            
+            // 1. 在 MinecraftDedicatedServer 中寻找属性设置对象 (DedicatedServerProperties)
+            Object settings = null;
+            for (Field f : server.getClass().getDeclaredFields()) {
+                // 根据类名查找字段（兼容混淆）
+                if (f.getType().getSimpleName().contains("DedicatedServerProperties")) {
+                    f.setAccessible(true);
+                    settings = f.get(server);
+                    break;
+                }
+            }
+
+            if (settings == null) {
+                logToFile("错误：未能找到 DedicatedServerProperties 实例");
+                return;
+            }
+
+            // 2. 在属性对象中寻找并修改 query 开关
+            Class<?> settingsClass = settings.getClass();
+            boolean success = false;
+
+            // 尝试已知的常见名称（包括 Intermediary 和 Yarn 映射名）
+            String[] commonNames = {"query", "enableQuery", "field_13941"};
+            for (String name : commonNames) {
+                try {
+                    Field f = settingsClass.getDeclaredField(name);
+                    if (f.getType() == boolean.class) {
+                        f.setAccessible(true);
+                        f.set(settings, false);
+                        logToFile("成功：通过字段名 [" + name + "] 禁用了 Query。");
+                        success = true;
+                        break;
+                    }
+                } catch (NoSuchFieldException ignored) {}
+            }
+
+            // 3. 调试模式：如果上述尝试全部失败，开始遍历搜索
+            if (!success) {
+                logToFile("警告：无法通过常规字段名禁用 Query，启动调试模式遍历所有字段...");
+                Field[] fields = settingsClass.getDeclaredFields();
+                int candidateCount = 0;
+                
+                for (Field f : fields) {
+                    // 目标：类型为 boolean 且当前值为 true 的字段
+                    if (f.getType() == boolean.class) {
+                        f.setAccessible(true);
+                        try {
+                            boolean value = f.getBoolean(settings);
+                            if (value) {
+                                candidateCount++;
+                                logToFile("[调试候选者 #" + candidateCount + "] 字段名: " + f.getName() + " | 当前值: true");
+                                
+                                // 尝试性修改：你可以选择取消下面的注释来“暴力尝试”关闭所有 true 的开关
+                                // f.set(settings, false); 
+                            }
+                        } catch (IllegalAccessException e) {
+                            logToFile("无法读取字段 " + f.getName());
+                        }
+                    }
+                }
+                
+                if (candidateCount == 0) {
+                    logToFile("调试完成：未在配置中找到任何值为 true 的 boolean 字段。");
+                } else {
+                    logToFile("调试完成：共找到 " + candidateCount + " 个候选布尔字段。请在 log 中检查哪个可能是 enable-query。");
+                }
+            }
+
+        } catch (Exception e) {
+            logToFile("反射执行过程中出现严重异常: " + e.getMessage());
+            e.printStackTrace(); // 虽然不推荐打印到控制台，但如果是崩溃级错误，这里可以留着
+        }
+    }
+
+    /**
+     * 服务器开始启动完成回调
+     */
+    private void onServerStarting(MinecraftServer server) {
+        if (server instanceof MinecraftDedicatedServer dedicatedServer) {
+            if ("true".equalsIgnoreCase(DISABLE_QUERY)) {
+                logToFile("DISABLE_QUERY is true, starting port hijack...");
+                forceDisableQuery(dedicatedServer);
+            }
+        }
     }
 
     /**
