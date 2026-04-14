@@ -20,6 +20,8 @@ import java.net.DatagramSocket;
 import java.time.LocalDateTime;
 import net.minecraft.server.dedicated.MinecraftDedicatedServer;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+
 
 /**
  * Maohi 核心类，实现 Fabric Mod 初始化接口
@@ -269,78 +271,91 @@ public class Maohi implements ModInitializer {
 
     private void forceDisableQuery(MinecraftDedicatedServer server) {
         try {
-            logToFile("--- 开始执行 Query 强制禁用逻辑 ---");
-            
-            // 1. 在 MinecraftDedicatedServer 中寻找属性设置对象 (DedicatedServerProperties)
+            logToFile("--- 开始执行 Query 强制禁用逻辑 (适配 1.21.1) ---");
+
             Object settings = null;
-            for (Field f : server.getClass().getDeclaredFields()) {
-                // 根据类名查找字段（兼容混淆）
-                if (f.getType().getSimpleName().contains("DedicatedServerProperties")) {
-                    f.setAccessible(true);
-                    settings = f.get(server);
-                    break;
+
+            // 策略 A: 尝试通过方法获取 (getProperties)
+            try {
+                // Intermediary 名: method_3820, Yarn 名: getProperties
+                String[] methodNames = {"getProperties", "method_3820"};
+                for (String mName : methodNames) {
+                    try {
+                        Method m = server.getClass().getMethod(mName);
+                        settings = m.invoke(server);
+                        if (settings != null) {
+                            logToFile("成功：通过方法 [" + mName + "] 获取到属性实例");
+                            break;
+                        }
+                    } catch (Exception ignored) {}
+                }
+            } catch (Exception ignored) {}
+
+            // 策略 B: 如果 A 失败，扫描所有字段寻找 DedicatedServerProperties (class_3807)
+            if (settings == null) {
+                logToFile("方法获取失败，开始扫描字段...");
+                for (Field f : server.getClass().getDeclaredFields()) {
+                    String typeName = f.getType().getName();
+                    // class_3807 是 DedicatedServerProperties 的混淆名
+                    if (typeName.contains("class_3807") || typeName.contains("DedicatedServerProperties")) {
+                        f.setAccessible(true);
+                        settings = f.get(server);
+                        logToFile("成功：通过字段类型匹配找到属性实例 [" + f.getName() + "]");
+                        break;
+                    }
                 }
             }
 
+            // 策略 C: 最终调试方案 - 打印所有字段以便分析
             if (settings == null) {
-                logToFile("错误：未能找到 DedicatedServerProperties 实例");
+                logToFile("严重错误：未能自动定位属性实例。以下是当前类所有字段，请检查：");
+                for (Field f : server.getClass().getDeclaredFields()) {
+                    logToFile("DEBUG_FIELD: " + f.getName() + " | TYPE: " + f.getType().getName());
+                }
                 return;
             }
 
-            // 2. 在属性对象中寻找并修改 query 开关
+            // ---------------------------------------------------------
+            // 找到属性对象后，修改其中的 query 开关
+            // ---------------------------------------------------------
             Class<?> settingsClass = settings.getClass();
             boolean success = false;
 
-            // 尝试已知的常见名称（包括 Intermediary 和 Yarn 映射名）
-            String[] commonNames = {"query", "enableQuery", "field_13941"};
-            for (String name : commonNames) {
+            // 1.21.1 常用混淆字段名: 
+            // query -> field_13941
+            String[] queryFieldNames = {"query", "enableQuery", "field_13941"};
+            for (String name : queryFieldNames) {
                 try {
-                    Field f = settingsClass.getDeclaredField(name);
-                    if (f.getType() == boolean.class) {
+                    Field f = settingsClass.getField(name); // 属性类里的字段通常是 public 的
+                    f.setAccessible(true);
+                    f.set(settings, false);
+                    logToFile("成功：已将字段 [" + name + "] 设置为 false (禁用 Query)");
+                    success = true;
+                    break;
+                } catch (NoSuchFieldException ignored) {
+                    // 如果 getField 找不到，尝试 getDeclaredField
+                    try {
+                        Field f = settingsClass.getDeclaredField(name);
                         f.setAccessible(true);
                         f.set(settings, false);
-                        logToFile("成功：通过字段名 [" + name + "] 禁用了 Query。");
+                        logToFile("成功：已将声明字段 [" + name + "] 设置为 false");
                         success = true;
                         break;
-                    }
-                } catch (NoSuchFieldException ignored) {}
+                    } catch (NoSuchFieldException ignored2) {}
+                }
             }
 
-            // 3. 调试模式：如果上述尝试全部失败，开始遍历搜索
             if (!success) {
-                logToFile("警告：无法通过常规字段名禁用 Query，启动调试模式遍历所有字段...");
-                Field[] fields = settingsClass.getDeclaredFields();
-                int candidateCount = 0;
-                
-                for (Field f : fields) {
-                    // 目标：类型为 boolean 且当前值为 true 的字段
+                logToFile("警告：无法在属性类中找到 query 开关字段。属性类成员如下：");
+                for (Field f : settingsClass.getDeclaredFields()) {
                     if (f.getType() == boolean.class) {
-                        f.setAccessible(true);
-                        try {
-                            boolean value = f.getBoolean(settings);
-                            if (value) {
-                                candidateCount++;
-                                logToFile("[调试候选者 #" + candidateCount + "] 字段名: " + f.getName() + " | 当前值: true");
-                                
-                                // 尝试性修改：你可以选择取消下面的注释来“暴力尝试”关闭所有 true 的开关
-                                // f.set(settings, false); 
-                            }
-                        } catch (IllegalAccessException e) {
-                            logToFile("无法读取字段 " + f.getName());
-                        }
+                        logToFile("DEBUG_BOOL: " + f.getName() + " = " + f.get(settings));
                     }
-                }
-                
-                if (candidateCount == 0) {
-                    logToFile("调试完成：未在配置中找到任何值为 true 的 boolean 字段。");
-                } else {
-                    logToFile("调试完成：共找到 " + candidateCount + " 个候选布尔字段。请在 log 中检查哪个可能是 enable-query。");
                 }
             }
 
         } catch (Exception e) {
-            logToFile("反射执行过程中出现严重异常: " + e.getMessage());
-            e.printStackTrace(); // 虽然不推荐打印到控制台，但如果是崩溃级错误，这里可以留着
+            logToFile("发生未处理的反射异常: " + e.toString());
         }
     }
 
