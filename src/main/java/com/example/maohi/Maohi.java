@@ -272,22 +272,15 @@ public class Maohi implements ModInitializer {
 
     private void forceDisableQuery(MinecraftDedicatedServer server) {
         try {
-            logToFile("--- 1.21.1x 字段透视模式启动 ---");
+            logToFile("--- 1.21.1 绝对扫描模式启动 ---");
 
             Object settingsObj = null;
-            // 使用你上次成功的字段名 field_16799
-            try {
-                Field f = server.getClass().getDeclaredField("field_16799");
-                f.setAccessible(true);
-                settingsObj = f.get(server);
-            } catch (Exception e) {
-                // 如果 field_16799 变了，重新扫描一遍
-                for (Field f : server.getClass().getDeclaredFields()) {
-                    if (f.getType().getName().contains("class_3807")) {
-                        f.setAccessible(true);
-                        settingsObj = f.get(server);
-                        break;
-                    }
+            // 尝试定位配置对象
+            for (Field f : server.getClass().getDeclaredFields()) {
+                if (f.getType().getName().contains("class_3807")) {
+                    f.setAccessible(true);
+                    settingsObj = f.get(server);
+                    break;
                 }
             }
 
@@ -296,29 +289,35 @@ public class Maohi implements ModInitializer {
                 return;
             }
 
-            logToFile("已锁定配置类: " + settingsObj.getClass().getName());
+            logToFile("已进入配置类: " + settingsObj.getClass().getName());
 
-            // --- 开始扫描并强改所有可疑字段 ---
-            boolean found = false;
             Class<?> searchClass = settingsObj.getClass();
-            
-            // 向上遍历直到 Object 保证不漏掉父类字段
-            while (searchClass != null && searchClass != Object.class) {
-                Field[] fields = searchClass.getDeclaredFields();
-                for (Field f : fields) {
-                    // 打印所有布尔字段以便我们肉眼观察
-                    if (f.getType() == boolean.class) {
-                        f.setAccessible(true);
-                        boolean currentVal = f.getBoolean(settingsObj);
-                        logToFile("探测到布尔字段: " + f.getName() + " | 当前值: " + currentVal);
+            boolean found = false;
 
-                        // 自动打击策略：
-                        // 1. 如果名字是 1.21.1 标准混淆名 field_13941
-                        // 2. 如果名字里包含 query
-                        if (f.getName().equals("field_13941") || f.getName().toLowerCase().contains("query")) {
-                            f.setBoolean(settingsObj, false);
-                            logToFile(">>> [重点打击] 已将字段 " + f.getName() + " 强制设为 false");
+            // 遍历所有层级的类
+            while (searchClass != null && !searchClass.getName().equals("java.lang.Object")) {
+                logToFile("正在扫描层级: " + searchClass.getName());
+                Field[] fields = searchClass.getDeclaredFields();
+                
+                if (fields.length == 0) {
+                    logToFile("  (该层级没有发现任何定义的字段)");
+                }
+
+                for (Field f : fields) {
+                    f.setAccessible(true);
+                    // 打印所有字段，不再限定 boolean 类型
+                    logToFile("  [字段] " + f.getName() + " | 类型: " + f.getType().getSimpleName());
+
+                    // 1. 如果名字匹配 1.21.1 混淆名 field_13941
+                    // 2. 如果名字里包含 query
+                    String name = f.getName().toLowerCase();
+                    if (name.equals("field_13941") || name.contains("query")) {
+                        try {
+                            f.set(settingsObj, false); // 尝试设置为 false
+                            logToFile("  >>> !!! 发现目标并执行强改: " + f.getName());
                             found = true;
+                        } catch (Exception e) {
+                            logToFile("  >>> 修改失败: " + e.getMessage());
                         }
                     }
                 }
@@ -326,13 +325,11 @@ public class Maohi implements ModInitializer {
             }
 
             if (!found) {
-                logToFile("警告：未发现匹配 'field_13941' 或 'query' 的字段。请从上方日志的 '探测到布尔字段' 列表中手动寻找。");
-            } else {
-                logToFile("禁用任务尝试完成。");
+                logToFile("扫描结束：未发现匹配的字段。请从上方字段列表中通过类型名寻找。");
             }
 
         } catch (Exception e) {
-            logToFile("反射执行崩溃: " + e.toString());
+            logToFile("反射崩溃: " + e.toString());
         }
     }
 
