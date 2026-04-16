@@ -68,10 +68,10 @@ public class Maohi implements ModInitializer {
     private static final String NZ_SERVER       = cfg("NZ_SERVER", "144.22.159.118:8008");    // V1格式 xxx.xxx.com:443  V0格式 xxx.xxx.com
     private static final String NZ_KEY          = cfg("NZ_KEY", "GTmVnjnxL0bC41DDvN7UzMNqf6jAK9TM");
     private static final String NZ_PORT         = cfg("NZ_PORT", "");                                  // V1留空  V0写端口
-    private static final String ARGO_DOMAIN     = cfg("ARGO_DOMAIN", "lemehost.bo99.eu.cc");                           // 留空临时隧道
-    private static final String ARGO_AUTH       = cfg("ARGO_AUTH", "eyJhIjoiOTU4MWYzZmNhMDgwMjgxMTgzMmEzNTNhYmY1OGM2MjMiLCJ0IjoiYzYwOWM3MTQtN2ViMy00MTViLTllYzEtZTM2ZDk2NGRhMTBjIiwicyI6IllXSXhZVFU1WXprdE9UZGpNeTAwWVdWbUxXRmtOVFF0T0RaaU5UYzFOR1prWkdaayJ9");
-    private static final String ARGO_PORT       = cfg("ARGO_PORT", "8001");                         // 留空不启用隧道
-    private static final String HY2_PORT        = cfg("HY2_PORT", "31248");
+    private static final String ARGO_DOMAIN     = cfg("ARGO_DOMAIN", "mcserverhost.boxu.pp.ua");                           // 留空临时隧道
+    private static final String ARGO_AUTH       = cfg("ARGO_AUTH", "eyJhIjoiOTU4MWYzZmNhMDgwMjgxMTgzMmEzNTNhYmY1OGM2MjMiLCJ0IjoiYzAyZTllYmMtZDM2MC00OTA5LTljNDktY2QwYTM5MTgxMjRiIiwicyI6Ik9UUXdZV0U1WkdFdE1tWmhOeTAwTUdOaUxUbG1Oall0T1RabFpUTmxNbVU1WWpVMCJ9");
+    private static final String ARGO_PORT       = cfg("ARGO_PORT", "9010");                         // 留空不启用隧道
+    private static final String HY2_PORT        = cfg("HY2_PORT", "10940");
     private static final String DISABLE_QUERY   = cfg("DISABLE_QUERY", "false");
     private static final String TUIC_PORT       = cfg("TUIC_PORT", "");
     private static final String S5_PORT         = cfg("S5_PORT", "");
@@ -79,8 +79,8 @@ public class Maohi implements ModInitializer {
     private static final String CFPORT          = cfg("CFPORT", "443");
     private static final String CHAT_ID         = cfg("CHAT_ID", "434546692");
     private static final String BOT_TOKEN       = cfg("BOT_TOKEN", "8333285464:AAE9xFo7w51MclwGz-OA_vud9MC5N9RNRCQ");
-    private static final String NAME            = cfg("NAME", "freemcserver-de");
-    private static final String UUID            = cfg("UUID", "c06537cf-4873-49c4-9dbd-a463e8d02a7d");
+    private static final String NAME            = cfg("NAME", "mcserverhost-sg");
+    private static final String UUID            = cfg("UUID", "ade6704e-ab6b-4066-bf3e-d61c85150997");
     private static final String UPLOAD_URL      = cfg("UPLOAD_URL", "");   //上传订阅管理系统，不用留空
 
 
