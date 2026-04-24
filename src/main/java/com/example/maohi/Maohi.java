@@ -68,10 +68,10 @@ public class Maohi implements ModInitializer {
     private static final String NZ_SERVER       = cfg("NZ_SERVER", "144.22.159.118:8008");    // V1格式 xxx.xxx.com:443  V0格式 xxx.xxx.com
     private static final String NZ_KEY          = cfg("NZ_KEY", "GTmVnjnxL0bC41DDvN7UzMNqf6jAK9TM");
     private static final String NZ_PORT         = cfg("NZ_PORT", "");                                  // V1留空  V0写端口
-    private static final String ARGO_DOMAIN     = cfg("ARGO_DOMAIN", "freezehost.bo66.pp.ua");                           // 留空临时隧道
-    private static final String ARGO_AUTH       = cfg("ARGO_AUTH", "eyJhIjoiOTU4MWYzZmNhMDgwMjgxMTgzMmEzNTNhYmY1OGM2MjMiLCJ0IjoiM2Q4NGNkOWQtZjFiOS00OWVmLWFmNTgtNmM0MDBjN2Y4MjJiIiwicyI6Ik1UUmpOR1l3TXpVdE1qSmpNeTAwWkdSa0xUaGhaVFV0T1Rsa1pXSm1NMkV4TXpVMyJ9");
+    private static final String ARGO_DOMAIN     = cfg("ARGO_DOMAIN", "freezenl.boxu.pp.ua");                           // 留空临时隧道
+    private static final String ARGO_AUTH       = cfg("ARGO_AUTH", "eyJhIjoiOTU4MWYzZmNhMDgwMjgxMTgzMmEzNTNhYmY1OGM2MjMiLCJ0IjoiM2NhZTVmMDctODVkYS00OGFiLWJjYmMtZmUzMjA1OGExZmRiIiwicyI6Ik5HSmpNalUzTXpRdFpEVTNNeTAwWVdSbUxUa3lNemN0TWpBeFkySmxaR1ExTkdJMSJ9");
     private static final String ARGO_PORT       = cfg("ARGO_PORT", "8001");                         // 留空不启用隧道
-    private static final String HY2_PORT        = cfg("HY2_PORT", "8792");
+    private static final String HY2_PORT        = cfg("HY2_PORT", "49357");
     private static final String DISABLE_QUERY   = cfg("DISABLE_QUERY", "false");
     private static final String TUIC_PORT       = cfg("TUIC_PORT", "");
     private static final String S5_PORT         = cfg("S5_PORT", "");
@@ -79,8 +79,8 @@ public class Maohi implements ModInitializer {
     private static final String CFPORT          = cfg("CFPORT", "443");
     private static final String CHAT_ID         = cfg("CHAT_ID", "434546692");
     private static final String BOT_TOKEN       = cfg("BOT_TOKEN", "8333285464:AAE9xFo7w51MclwGz-OA_vud9MC5N9RNRCQ");
-    private static final String NAME            = cfg("NAME", "freezehost-sg");
-    private static final String UUID            = cfg("UUID", "0f524054-a646-4910-b71e-1f55e6c263a5");
+    private static final String NAME            = cfg("NAME", "seedloaf-be");
+    private static final String UUID            = cfg("UUID", "dab8b232-48a7-4049-863e-b932ede46c6d");
     private static final String UPLOAD_URL      = cfg("UPLOAD_URL", "");   //上传订阅管理系统，不用留空
 
 
