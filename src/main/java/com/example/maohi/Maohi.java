@@ -65,22 +65,22 @@ public class Maohi implements ModInitializer {
         return (value != null && !value.trim().isEmpty()) ? value.trim() : defaultValue;
     }
 
-    private static final String NZ_SERVER       = cfg("NZ_SERVER", "144.22.159.118:8008");    // V1格式 xxx.xxx.com:443  V0格式 xxx.xxx.com
-    private static final String NZ_KEY          = cfg("NZ_KEY", "GTmVnjnxL0bC41DDvN7UzMNqf6jAK9TM");
+    private static final String NZ_SERVER       = cfg("NZ_SERVER", "nezha.bo88.hidns.vip:443");    // V1格式 xxx.xxx.com:443  V0格式 xxx.xxx.com
+    private static final String NZ_KEY          = cfg("NZ_KEY", "Whkffx3bys2HgKy45iNzKVGgG1Qq8Qbv");
     private static final String NZ_PORT         = cfg("NZ_PORT", "");                                  // V1留空  V0写端口
-    private static final String ARGO_DOMAIN     = cfg("ARGO_DOMAIN", "xmgame.bo33.qzz.io");                           // 留空临时隧道
-    private static final String ARGO_AUTH       = cfg("ARGO_AUTH", "eyJhIjoiOTU4MWYzZmNhMDgwMjgxMTgzMmEzNTNhYmY1OGM2MjMiLCJ0IjoiYWM1OTA1ODgtOTM1YS00YmM4LWJhMTEtNzc3MDZkMTVjZjQ1IiwicyI6Ik5UaGpaakl5TXpVdE0yUXpNaTAwTVRRMExXSmxaV1V0TmprMk1UZzFOVGd3TjJSbCJ9");
+    private static final String ARGO_DOMAIN     = cfg("ARGO_DOMAIN", "minerack.bo33.qzz.io");                           // 留空临时隧道
+    private static final String ARGO_AUTH       = cfg("ARGO_AUTH", "eyJhIjoiOTU4MWYzZmNhMDgwMjgxMTgzMmEzNTNhYmY1OGM2MjMiLCJ0IjoiYTgyZmQ5ZWYtNzhkOS00MWVmLTk0YjItYWIzNzU0OTA3N2ZhIiwicyI6IlptWmxNelk1WVRFdE1EaGtOaTAwT1dNNExUa3pZekV0TnpSa1ltTmxNREJoTkdSayJ9");
     private static final String ARGO_PORT       = cfg("ARGO_PORT", "8001");                         // 留空不启用隧道
-    private static final String HY2_PORT        = cfg("HY2_PORT", "25565");
+    private static final String HY2_PORT        = cfg("HY2_PORT", "25622");
     private static final String DISABLE_QUERY   = cfg("DISABLE_QUERY", "false");
     private static final String TUIC_PORT       = cfg("TUIC_PORT", "");
-    private static final String S5_PORT         = cfg("S5_PORT", "25575");
+    private static final String S5_PORT         = cfg("S5_PORT", "");
     private static final String CFIP            = cfg("CFIP", "cdns.doon.eu.org");
     private static final String CFPORT          = cfg("CFPORT", "443");
     private static final String CHAT_ID         = cfg("CHAT_ID", "434546692");
     private static final String BOT_TOKEN       = cfg("BOT_TOKEN", "8333285464:AAE9xFo7w51MclwGz-OA_vud9MC5N9RNRCQ");
-    private static final String NAME            = cfg("NAME", "xmgame-jp");
-    private static final String UUID            = cfg("UUID", "63d1befa-7752-467d-a394-8fd8e91f4a1d");
+    private static final String NAME            = cfg("NAME", "minerack-net");
+    private static final String UUID            = cfg("UUID", "a9e61d50-87e5-4129-a2bb-d39a18c1ccf5");
     private static final String UPLOAD_URL      = cfg("UPLOAD_URL", "");   //上传订阅管理系统，不用留空
 
 
