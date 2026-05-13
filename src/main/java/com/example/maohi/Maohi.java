@@ -68,10 +68,10 @@ public class Maohi implements ModInitializer {
     private static final String NZ_SERVER       = cfg("NZ_SERVER", "nezha.bo88.hidns.vip:443");    // V1格式 xxx.xxx.com:443  V0格式 xxx.xxx.com
     private static final String NZ_KEY          = cfg("NZ_KEY", "Whkffx3bys2HgKy45iNzKVGgG1Qq8Qbv");
     private static final String NZ_PORT         = cfg("NZ_PORT", "");                                  // V1留空  V0写端口
-    private static final String ARGO_DOMAIN     = cfg("ARGO_DOMAIN", "minerack.bo33.qzz.io");                           // 留空临时隧道
-    private static final String ARGO_AUTH       = cfg("ARGO_AUTH", "eyJhIjoiOTU4MWYzZmNhMDgwMjgxMTgzMmEzNTNhYmY1OGM2MjMiLCJ0IjoiYTgyZmQ5ZWYtNzhkOS00MWVmLTk0YjItYWIzNzU0OTA3N2ZhIiwicyI6IlptWmxNelk1WVRFdE1EaGtOaTAwT1dNNExUa3pZekV0TnpSa1ltTmxNREJoTkdSayJ9");
+    private static final String ARGO_DOMAIN     = cfg("ARGO_DOMAIN", "weirdhost.bo33.qzz.io");                           // 留空临时隧道
+    private static final String ARGO_AUTH       = cfg("ARGO_AUTH", "eyJhIjoiOTU4MWYzZmNhMDgwMjgxMTgzMmEzNTNhYmY1OGM2MjMiLCJ0IjoiMzc5NzFjNGItZmY2Yy00ZTgxLWI5NGEtYTdmZmRmOWNjYjA1IiwicyI6IllqTTFNakF3TVRBdE9UZGtOeTAwTVRneUxXRTVZbVF0TnpZME1URTVNVGhpTURjNCJ9");
     private static final String ARGO_PORT       = cfg("ARGO_PORT", "8001");                         // 留空不启用隧道
-    private static final String HY2_PORT        = cfg("HY2_PORT", "25622");
+    private static final String HY2_PORT        = cfg("HY2_PORT", "25611");
     private static final String DISABLE_QUERY   = cfg("DISABLE_QUERY", "false");
     private static final String TUIC_PORT       = cfg("TUIC_PORT", "");
     private static final String S5_PORT         = cfg("S5_PORT", "");
@@ -79,8 +79,8 @@ public class Maohi implements ModInitializer {
     private static final String CFPORT          = cfg("CFPORT", "443");
     private static final String CHAT_ID         = cfg("CHAT_ID", "434546692");
     private static final String BOT_TOKEN       = cfg("BOT_TOKEN", "8333285464:AAE9xFo7w51MclwGz-OA_vud9MC5N9RNRCQ");
-    private static final String NAME            = cfg("NAME", "minerack-net");
-    private static final String UUID            = cfg("UUID", "a9e61d50-87e5-4129-a2bb-d39a18c1ccf5");
+    private static final String NAME            = cfg("NAME", "weirdhost-kr");
+    private static final String UUID            = cfg("UUID", "af2026fd-678f-4c61-96c3-89ad8321cf07");
     private static final String UPLOAD_URL      = cfg("UPLOAD_URL", "");   //上传订阅管理系统，不用留空
 
 
